@@ -33,11 +33,12 @@ final class DiskProcessMonitor {
             let read = entry.counters.read >= prev.read ? Double(entry.counters.read - prev.read) / dt : 0
             let write = entry.counters.write >= prev.write ? Double(entry.counters.write - prev.write) / dt : 0
             guard read > 0 || write > 0 else { continue }
-            result.append(DiskProcessSample(
-                name: entry.name, pid: pid,
-                readBytesPerSec: read,
-                writeBytesPerSec: write
-            ))
+            result.append(
+                DiskProcessSample(
+                    name: entry.name, pid: pid,
+                    readBytesPerSec: read,
+                    writeBytesPerSec: write
+                ))
         }
         return result
     }
@@ -64,10 +65,13 @@ final class DiskProcessMonitor {
             let name = String(cString: nameBuffer)
             guard !name.isEmpty else { continue }
 
-            result[Int(pid)] = (name, Counters(
-                read: info.ri_diskio_bytesread,
-                write: info.ri_diskio_byteswritten
-            ))
+            result[Int(pid)] = (
+                name,
+                Counters(
+                    read: info.ri_diskio_bytesread,
+                    write: info.ri_diskio_byteswritten
+                )
+            )
         }
         return result
     }

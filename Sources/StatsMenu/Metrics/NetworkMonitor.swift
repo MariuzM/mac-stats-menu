@@ -42,10 +42,11 @@ final class NetworkMonitor {
             defer { ptr = cur.pointee.ifa_next }
             let flags = Int32(cur.pointee.ifa_flags)
             guard let addr = cur.pointee.ifa_addr,
-                  addr.pointee.sa_family == UInt8(AF_LINK),
-                  (flags & IFF_UP) != 0,
-                  (flags & IFF_LOOPBACK) == 0,
-                  let data = cur.pointee.ifa_data else { continue }
+                addr.pointee.sa_family == UInt8(AF_LINK),
+                (flags & IFF_UP) != 0,
+                (flags & IFF_LOOPBACK) == 0,
+                let data = cur.pointee.ifa_data
+            else { continue }
 
             let net = data.assumingMemoryBound(to: if_data.self)
             totalIn += UInt64(net.pointee.ifi_ibytes)

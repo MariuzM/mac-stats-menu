@@ -16,8 +16,8 @@ network at a glance.
 Requires macOS 13+ and the Xcode command line tools.
 
 ```sh
-./build.sh          # builds a release binary and packages StatsMenu.app
-open StatsMenu.app
+make                # builds a release binary and packages build/StatsMenu.app
+make run            # same, then launches the app
 ```
 
 That's it — `StatsMenu.app` is a self-contained menu bar app (no dock icon).

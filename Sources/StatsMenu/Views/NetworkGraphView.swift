@@ -26,8 +26,9 @@ final class NetworkGraphView: NSView {
 
         func point(_ i: Int) -> NSPoint {
             let v = min(1, values[i] / maxVal)
-            return NSPoint(x: b.minX + CGFloat(i) * stepX,
-                           y: b.minY + CGFloat(v) * (b.height - 2) + 1)
+            return NSPoint(
+                x: b.minX + CGFloat(i) * stepX,
+                y: b.minY + CGFloat(v) * (b.height - 2) + 1)
         }
 
         let line = NSBezierPath()

@@ -55,9 +55,10 @@ final class StatusItemController: NSObject {
         guard let button = statusItem.button, let buttonWindow = button.window else { return }
 
         let vc = PopoverViewController(engine: engine)
-        let panel = NSPanel(contentRect: .zero,
-                            styleMask: [.borderless, .nonactivatingPanel],
-                            backing: .buffered, defer: false)
+        let panel = NSPanel(
+            contentRect: .zero,
+            styleMask: [.borderless, .nonactivatingPanel],
+            backing: .buffered, defer: false)
         panel.isFloatingPanel = true
         panel.level = .popUpMenu
         panel.hasShadow = true
@@ -83,14 +84,17 @@ final class StatusItemController: NSObject {
         panel.setFrameOrigin(NSPoint(x: x, y: buttonRect.minY - size.height - 6))
         panel.orderFront(nil)
 
-        globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] _ in
+        globalClickMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) {
+            [weak self] _ in
             self?.closePanel()
         }
-        localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) { [weak self] e in
+        localClickMonitor = NSEvent.addLocalMonitorForEvents(matching: [.leftMouseDown, .rightMouseDown]) {
+            [weak self] e in
             guard let self, let panel = self.panel else { return e }
             if e.window !== panel,
-               e.window !== self.statusItem.button?.window,
-               self.panelVC?.ownsWindow(e.window) != true {
+                e.window !== self.statusItem.button?.window,
+                self.panelVC?.ownsWindow(e.window) != true
+            {
                 self.closePanel()
             }
             return e

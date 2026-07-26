@@ -26,11 +26,13 @@ enum AppInfo {
 
     private static func downsample(_ image: NSImage) -> NSImage {
         let pixels = Int(iconSide * 2)
-        guard let rep = NSBitmapImageRep(
-            bitmapDataPlanes: nil, pixelsWide: pixels, pixelsHigh: pixels,
-            bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-            colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
-        ) else { return image }
+        guard
+            let rep = NSBitmapImageRep(
+                bitmapDataPlanes: nil, pixelsWide: pixels, pixelsHigh: pixels,
+                bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
+                colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0
+            )
+        else { return image }
         rep.size = NSSize(width: iconSide, height: iconSide)
 
         NSGraphicsContext.saveGraphicsState()

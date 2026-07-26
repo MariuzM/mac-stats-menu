@@ -2,6 +2,14 @@
 
 All notable changes to this project are documented here.
 
+## [0.7.0] - 2026-07-26
+
+### Added
+- Claude Code and Codex rate-limit rows in the stats panel, each toggleable in Settings.
+
+### Changed
+- Bundle identifier is now `com.mariuzm.statsmenu` — settings reset to defaults and "Launch at login" must be re-enabled once.
+
 ## [0.6.0] - 2026-07-12
 
 ### Added

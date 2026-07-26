@@ -36,13 +36,15 @@ final class NetworkProcessMonitor {
             guard down > 0 || up > 0 else { continue }
 
             guard let dot = key.lastIndex(of: "."),
-                  let pid = Int(key[key.index(after: dot)...]) else { continue }
+                let pid = Int(key[key.index(after: dot)...])
+            else { continue }
             let name = String(key[..<dot])
-            result.append(NetworkProcessSample(
-                name: name, pid: pid,
-                downBytesPerSec: down,
-                upBytesPerSec: up
-            ))
+            result.append(
+                NetworkProcessSample(
+                    name: name, pid: pid,
+                    downBytesPerSec: down,
+                    upBytesPerSec: up
+                ))
         }
         return result
     }
@@ -69,10 +71,11 @@ final class NetworkProcessMonitor {
         for line in output.split(separator: "\n") {
             let fields = line.split(separator: ",", omittingEmptySubsequences: false)
             guard fields.count >= 3,
-                  !fields[0].isEmpty,
-                  fields[0].contains("."),
-                  let bytesIn = UInt64(fields[1]),
-                  let bytesOut = UInt64(fields[2]) else { continue }
+                !fields[0].isEmpty,
+                fields[0].contains("."),
+                let bytesIn = UInt64(fields[1]),
+                let bytesOut = UInt64(fields[2])
+            else { continue }
             result[String(fields[0])] = Counters(bytesIn: bytesIn, bytesOut: bytesOut)
         }
         return result

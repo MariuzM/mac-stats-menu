@@ -38,7 +38,8 @@ enum StatusBarRenderer {
 
         let downText = rate(engine.network.downBytesPerSec)
         let upText = rate(engine.network.upBytesPerSec)
-        let font = highContrast
+        let font =
+            highContrast
             ? NSFont.monospacedDigitSystemFont(ofSize: 8.5, weight: .semibold)
             : netFont
         let netWidth = ("000.0 MB/s" as NSString).size(withAttributes: [.font: font]).width
@@ -61,25 +62,30 @@ enum StatusBarRenderer {
 
         if highContrast {
             NSColor.black.withAlphaComponent(0.78).setFill()
-            NSBezierPath(roundedRect: NSRect(x: 0, y: 1, width: totalWidth, height: thickness - 2),
-                         xRadius: 4, yRadius: 4).fill()
+            NSBezierPath(
+                roundedRect: NSRect(x: 0, y: 1, width: totalWidth, height: thickness - 2),
+                xRadius: 4, yRadius: 4
+            ).fill()
         }
 
         var x = horizontalPadding
         for metric in metrics {
-            drawBar(value: metric.value, color: metric.color,
-                    highContrast: highContrast,
-                    in: NSRect(x: x, y: yInset, width: barWidth, height: barHeight))
+            drawBar(
+                value: metric.value, color: metric.color,
+                highContrast: highContrast,
+                in: NSRect(x: x, y: yInset, width: barWidth, height: barHeight))
             x += barWidth + gap
         }
 
         let netX = horizontalPadding + barsWidth + netGap
         let lineHeight = downSize.height
         let blockBottom = (thickness - lineHeight * 2) / 2
-        (downText as NSString).draw(at: NSPoint(x: netX + netWidth - downSize.width, y: blockBottom + lineHeight),
-                                    withAttributes: downAttrs)
-        (upText as NSString).draw(at: NSPoint(x: netX + netWidth - upSize.width, y: blockBottom),
-                                  withAttributes: upAttrs)
+        (downText as NSString).draw(
+            at: NSPoint(x: netX + netWidth - downSize.width, y: blockBottom + lineHeight),
+            withAttributes: downAttrs)
+        (upText as NSString).draw(
+            at: NSPoint(x: netX + netWidth - upSize.width, y: blockBottom),
+            withAttributes: upAttrs)
 
         image.unlockFocus()
         image.isTemplate = false
@@ -109,7 +115,8 @@ enum StatusBarRenderer {
             value /= 1024
             unit += 1
         }
-        let number = (unit == 0 || value >= 100)
+        let number =
+            (unit == 0 || value >= 100)
             ? String(format: "%.0f", value)
             : String(format: "%.1f", value)
         return "\(number) \(units[unit])"

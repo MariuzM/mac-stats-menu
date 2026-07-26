@@ -20,8 +20,9 @@ final class MetricGraphView: NSView {
 
         func point(_ i: Int) -> NSPoint {
             let v = max(0, min(100, history[i]))
-            return NSPoint(x: b.minX + CGFloat(i) * stepX,
-                           y: b.minY + CGFloat(v / 100) * (b.height - 2) + 1)
+            return NSPoint(
+                x: b.minX + CGFloat(i) * stepX,
+                y: b.minY + CGFloat(v / 100) * (b.height - 2) + 1)
         }
 
         let line = NSBezierPath()

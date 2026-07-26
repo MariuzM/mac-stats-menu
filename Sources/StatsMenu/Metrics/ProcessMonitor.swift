@@ -31,15 +31,17 @@ enum ProcessMonitor {
         for line in output.split(separator: "\n") {
             let parts = line.split(separator: " ", maxSplits: 3, omittingEmptySubsequences: true)
             guard parts.count == 4,
-                  let pid = Int(parts[0]),
-                  let cpu = Double(parts[1]),
-                  let rssKB = UInt64(parts[2]) else { continue }
-            result.append(ProcessSample(
-                pid: pid,
-                name: String(parts[3]),
-                cpu: cpu,
-                memBytes: rssKB * 1024
-            ))
+                let pid = Int(parts[0]),
+                let cpu = Double(parts[1]),
+                let rssKB = UInt64(parts[2])
+            else { continue }
+            result.append(
+                ProcessSample(
+                    pid: pid,
+                    name: String(parts[3]),
+                    cpu: cpu,
+                    memBytes: rssKB * 1024
+                ))
         }
         return result
     }

@@ -29,11 +29,12 @@ final class GPUProcessMonitor {
             let deltaNanos = accumulated - prev
             let percent = Double(deltaNanos) / (dt * 1_000_000_000) * 100
             guard percent > 0 else { continue }
-            result.append(GPUProcessSample(
-                pid: pid,
-                name: current.names[pid] ?? "pid \(pid)",
-                percent: min(100, percent)
-            ))
+            result.append(
+                GPUProcessSample(
+                    pid: pid,
+                    name: current.names[pid] ?? "pid \(pid)",
+                    percent: min(100, percent)
+                ))
         }
         return result
     }
@@ -43,9 +44,11 @@ final class GPUProcessMonitor {
         var names: [Int: String] = [:]
 
         var iterator: io_iterator_t = 0
-        guard IOServiceGetMatchingServices(
+        guard
+            IOServiceGetMatchingServices(
                 kIOMainPortDefault, IOServiceMatching("IOAccelerator"), &iterator
-              ) == KERN_SUCCESS else {
+            ) == KERN_SUCCESS
+        else {
             return (times, names)
         }
         defer { IOObjectRelease(iterator) }
@@ -77,14 +80,17 @@ final class GPUProcessMonitor {
 
     private func accumulate(_ entry: io_registry_entry_t, times: inout [Int: UInt64], names: inout [Int: String]) {
         guard let creator = string(entry, "IOUserClientCreator"),
-              let (pid, name) = parseCreator(creator) else { return }
+            let (pid, name) = parseCreator(creator)
+        else { return }
 
         names[pid] = name
 
-        guard let raw = IORegistryEntryCreateCFProperty(
+        guard
+            let raw = IORegistryEntryCreateCFProperty(
                 entry, "AppUsage" as CFString, kCFAllocatorDefault, 0
-              )?.takeRetainedValue(),
-              let usages = raw as? [[String: Any]] else { return }
+            )?.takeRetainedValue(),
+            let usages = raw as? [[String: Any]]
+        else { return }
 
         var total: UInt64 = times[pid] ?? 0
         for usage in usages {
@@ -105,9 +111,11 @@ final class GPUProcessMonitor {
     }
 
     private func string(_ entry: io_registry_entry_t, _ key: String) -> String? {
-        guard let raw = IORegistryEntryCreateCFProperty(
+        guard
+            let raw = IORegistryEntryCreateCFProperty(
                 entry, key as CFString, kCFAllocatorDefault, 0
-              )?.takeRetainedValue() else { return nil }
+            )?.takeRetainedValue()
+        else { return nil }
         return raw as? String
     }
 }
