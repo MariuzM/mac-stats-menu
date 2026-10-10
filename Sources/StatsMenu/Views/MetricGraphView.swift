@@ -25,19 +25,18 @@ final class MetricGraphView: NSView {
                 y: b.minY + CGFloat(v / 100) * (b.height - 2) + 1)
         }
 
-        let line = NSBezierPath()
-        line.move(to: point(0))
-        for i in 1..<n { line.line(to: point(i)) }
-
-        let area = line.copy() as! NSBezierPath
-        area.line(to: NSPoint(x: b.maxX, y: b.minY))
-        area.line(to: NSPoint(x: b.minX, y: b.minY))
-        area.close()
-        color.withAlphaComponent(0.18).setFill()
-        area.fill()
+        let path = NSBezierPath()
+        path.move(to: point(0))
+        for i in 1..<n { path.line(to: point(i)) }
 
         color.setStroke()
-        line.lineWidth = 1.5
-        line.stroke()
+        path.lineWidth = 1.5
+        path.stroke()
+
+        path.line(to: NSPoint(x: b.maxX, y: b.minY))
+        path.line(to: NSPoint(x: b.minX, y: b.minY))
+        path.close()
+        color.withAlphaComponent(0.18).setFill()
+        path.fill()
     }
 }

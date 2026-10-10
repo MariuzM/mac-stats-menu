@@ -7,6 +7,9 @@ enum StatusBarRenderer {
     static let cornerRadius: CGFloat = 1.5
     static let netGap: CGFloat = 10
     static let netFont = NSFont.monospacedDigitSystemFont(ofSize: 8.5, weight: .regular)
+    static let netFontBold = NSFont.monospacedDigitSystemFont(ofSize: 8.5, weight: .semibold)
+    private static let netWidthNormal = ("000.0 MB/s" as NSString).size(withAttributes: [.font: netFont]).width
+    private static let netWidthBold = ("000.0 MB/s" as NSString).size(withAttributes: [.font: netFontBold]).width
 
     struct Metric {
         let value: Double
@@ -38,11 +41,8 @@ enum StatusBarRenderer {
 
         let downText = rate(engine.network.downBytesPerSec)
         let upText = rate(engine.network.upBytesPerSec)
-        let font =
-            highContrast
-            ? NSFont.monospacedDigitSystemFont(ofSize: 8.5, weight: .semibold)
-            : netFont
-        let netWidth = ("000.0 MB/s" as NSString).size(withAttributes: [.font: font]).width
+        let font = highContrast ? netFontBold : netFont
+        let netWidth = highContrast ? netWidthBold : netWidthNormal
         let downAttrs: [NSAttributedString.Key: Any] = [
             .font: font,
             .foregroundColor: highContrast ? NSColor.cyan : NSColor.systemTeal,

@@ -2,14 +2,33 @@ import AppKit
 
 private enum MetricKind: Hashable {
     case cpu, memory, gpu, disk, network
+
+    var group: SampleGroup {
+        switch self {
+        case .cpu, .memory, .disk: return .process
+        case .gpu: return .gpu
+        case .network: return .network
+        }
+    }
+}
+
+private enum SampleGroup: Hashable {
+    case process, gpu, network
+
+    var minimumInterval: TimeInterval {
+        switch self {
+        case .network: return max(SamplingSettings.panelInterval, 4)
+        case .process, .gpu: return SamplingSettings.panelInterval
+        }
+    }
 }
 
 final class PopoverViewController: NSViewController {
     private let engine: StatsEngine
     private let rowCount = 5
+    private let processes = ProcessMonitor()
     private let networkProcesses = NetworkProcessMonitor()
     private let gpuProcesses = GPUProcessMonitor()
-    private let diskProcesses = DiskProcessMonitor()
 
     private let cpuRow = MetricRow(title: "CPU", color: .systemBlue)
     private let memRow = MetricRow(title: "Memory", color: .systemGreen)
@@ -26,7 +45,6 @@ final class PopoverViewController: NSViewController {
     private var latestProcesses: [ProcessSample] = []
     private var latestNet: [NetworkProcessSample] = []
     private var latestGPU: [GPUProcessSample] = []
-    private var latestDisk: [DiskProcessSample] = []
     private var latestClaude: ClaudeLiveLimits?
     private var claudeFetchStarted = false
     private var claudeFetchDone = false
@@ -34,12 +52,27 @@ final class PopoverViewController: NSViewController {
     private var codexFetchStarted = false
     private var codexFetchDone = false
 
-    private var activeKind: MetricKind?
+    private var activeKind: MetricKind? {
+        didSet {
+            if activeKind == nil {
+                refreshTimer?.invalidate()
+                refreshTimer = nil
+            } else if refreshTimer == nil {
+                let timer = Timer(timeInterval: 1, repeats: true) { [weak self] _ in
+                    guard let self, let kind = self.activeKind else { return }
+                    self.sampleAsync(kind)
+                }
+                RunLoop.main.add(timer, forMode: .common)
+                refreshTimer = timer
+            }
+        }
+    }
+    private var refreshTimer: Timer?
     private weak var anchorView: NSView?
     private var closeWorkItem: DispatchWorkItem?
     private let sampleQueue = DispatchQueue(label: "StatsMenu.flyout-sampling", qos: .userInitiated)
-    private var sampleInFlight = false
-    private var lastSampleTime: [MetricKind: TimeInterval] = [:]
+    private var inFlight: Set<SampleGroup> = []
+    private var lastSampleTime: [SampleGroup: TimeInterval] = [:]
 
     init(engine: StatsEngine) {
         self.engine = engine
@@ -49,6 +82,7 @@ final class PopoverViewController: NSViewController {
     required init?(coder: NSCoder) { fatalError() }
 
     deinit {
+        refreshTimer?.invalidate()
         FlyoutController.shared.hide()
     }
 
@@ -184,7 +218,7 @@ final class PopoverViewController: NSViewController {
         latestClaude = ClaudeUsageMonitor.shared.cached
         updateClaudeRow()
         claudeRow.setLoading(true)
-        ClaudeUsageMonitor.shared.fetch { [weak self] limits in
+        ClaudeUsageMonitor.shared.refresh { [weak self] limits in
             DispatchQueue.main.async {
                 guard let self else { return }
                 self.claudeRow.setLoading(false)
@@ -232,7 +266,7 @@ final class PopoverViewController: NSViewController {
         codexFetchStarted = true
         latestCodex = CodexUsageMonitor.shared.cached
         updateCodexRow()
-        codexRow.setLoading(true)
+        codexRow.setLoading(!CodexUsageMonitor.shared.isCacheFresh)
         CodexUsageMonitor.shared.fetch { [weak self] limits in
             DispatchQueue.main.async {
                 guard let self else { return }
@@ -273,39 +307,49 @@ final class PopoverViewController: NSViewController {
     }
 
     private func sampleAsync(_ kind: MetricKind) {
-        guard !sampleInFlight else { return }
+        let group = kind.group
+        guard !inFlight.contains(group) else { return }
         let now = ProcessInfo.processInfo.systemUptime
-        let sampleKind: MetricKind = kind == .memory ? .cpu : kind
-        guard now - (lastSampleTime[sampleKind] ?? -.infinity) >= SamplingSettings.panelInterval else { return }
-        lastSampleTime[sampleKind] = now
-        sampleInFlight = true
+        guard now - (lastSampleTime[group] ?? -.infinity) >= group.minimumInterval else { return }
+        lastSampleTime[group] = now
+        inFlight.insert(group)
+        let maxAge = group.minimumInterval * 3
         sampleQueue.async { [weak self] in
             guard let self else { return }
             autoreleasepool {
                 var processes: [ProcessSample]?
                 var gpu: [GPUProcessSample]?
-                var disk: [DiskProcessSample]?
                 var net: [NetworkProcessSample]?
-                switch kind {
-                case .cpu, .memory: processes = ProcessMonitor.sample()
-                case .gpu: gpu = self.gpuProcesses.sample()
-                case .disk: disk = self.diskProcesses.sample()
-                case .network: net = self.networkProcesses.sample()
+                var primed = false
+                switch group {
+                case .process:
+                    processes = self.processes.sample(maxAge: maxAge)
+                    primed = processes == nil
+                case .gpu:
+                    gpu = self.gpuProcesses.sample(maxAge: maxAge)
+                    primed = gpu == nil
+                case .network:
+                    net = self.networkProcesses.sample(maxAge: maxAge)
+                    primed = net == nil
                 }
                 DispatchQueue.main.async {
-                    self.sampleInFlight = false
+                    self.inFlight.remove(group)
                     if let processes { self.latestProcesses = processes }
                     if let gpu { self.latestGPU = gpu }
-                    if let disk { self.latestDisk = disk }
                     if let net { self.latestNet = net }
-                    guard let active = self.activeKind else { return }
-                    let sharesProcessSample =
-                        (kind == .cpu || kind == .memory)
-                        && (active == .cpu || active == .memory)
-                    guard active == kind || sharesProcessSample else { return }
+                    if primed { self.scheduleResample(group) }
+                    guard let active = self.activeKind, active.group == group else { return }
                     FlyoutController.shared.updateContent(sections: self.detailSections(for: active))
                 }
             }
+        }
+    }
+
+    private func scheduleResample(_ group: SampleGroup) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1) { [weak self] in
+            guard let self, let kind = self.activeKind, kind.group == group else { return }
+            self.lastSampleTime[group] = nil
+            self.sampleAsync(kind)
         }
     }
 
@@ -324,9 +368,9 @@ final class PopoverViewController: NSViewController {
                 .map { item(pid: $0.pid, name: $0.name, value: String(format: "%.1f%%", $0.percent)) }
             return [("Top GPU", items)]
         case .disk:
-            let read = top(latestDisk) { $0.readBytesPerSec }
+            let read = top(latestProcesses) { $0.readBytesPerSec }
                 .map { item(pid: $0.pid, name: $0.name, value: ByteFormat.rate($0.readBytesPerSec)) }
-            let write = top(latestDisk) { $0.writeBytesPerSec }
+            let write = top(latestProcesses) { $0.writeBytesPerSec }
                 .map { item(pid: $0.pid, name: $0.name, value: ByteFormat.rate($0.writeBytesPerSec)) }
             return [("Top Read", read), ("Top Write", write)]
         case .network:

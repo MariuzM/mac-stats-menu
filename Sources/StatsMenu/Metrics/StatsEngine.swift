@@ -85,7 +85,7 @@ final class StatsEngine {
         let timer = Timer(timeInterval: interval, repeats: true) { [weak self] _ in
             self?.sampleOnce()
         }
-        timer.tolerance = interval * 0.1
+        timer.tolerance = interval * (isDetailed ? 0.1 : 0.4)
         RunLoop.main.add(timer, forMode: .common)
         self.timer = timer
     }

@@ -13,8 +13,21 @@ struct ClaudeLiveLimits {
 final class ClaudeUsageMonitor {
     static let shared = ClaudeUsageMonitor()
 
+    static let minimumRefreshInterval: TimeInterval = 300
+
     private(set) var cached: ClaudeLiveLimits?
+    private var lastFetchTime: TimeInterval = -.infinity
+    private var fetchInFlight = false
+    private var waiting: [(ClaudeLiveLimits?) -> Void] = []
     private let queue = DispatchQueue(label: "StatsMenu.claude-usage", qos: .userInitiated)
+    private let state = DispatchQueue(label: "StatsMenu.claude-usage.state")
+
+    var isCacheFresh: Bool {
+        state.sync {
+            cached != nil
+                && ProcessInfo.processInfo.systemUptime - lastFetchTime < Self.minimumRefreshInterval
+        }
+    }
 
     private var claudePath: String? {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
@@ -26,12 +39,57 @@ final class ClaudeUsageMonitor {
         return candidates.first { FileManager.default.isExecutableFile(atPath: $0) }
     }
 
+    private enum Action {
+        case serveCache(ClaudeLiveLimits?)
+        case joinInFlight
+        case run
+    }
+
     func fetch(completion: @escaping (ClaudeLiveLimits?) -> Void) {
-        queue.async { [weak self] in
-            guard let self else { return }
-            let limits = self.runUsageCommand()
-            if let limits { self.cached = limits }
-            completion(limits ?? self.cached)
+        fetch(useCache: true, completion: completion)
+    }
+
+    func refresh(completion: @escaping (ClaudeLiveLimits?) -> Void) {
+        fetch(useCache: false, completion: completion)
+    }
+
+    private func fetch(
+        useCache: Bool,
+        completion: @escaping (ClaudeLiveLimits?) -> Void
+    ) {
+        let action: Action = state.sync {
+            let now = ProcessInfo.processInfo.systemUptime
+            if useCache, let cached, now - lastFetchTime < Self.minimumRefreshInterval {
+                return .serveCache(cached)
+            }
+            waiting.append(completion)
+            guard !fetchInFlight else { return .joinInFlight }
+            fetchInFlight = true
+            return .run
+        }
+
+        switch action {
+        case .serveCache(let limits):
+            completion(limits)
+        case .joinInFlight:
+            break
+        case .run:
+            queue.async { [weak self] in
+                guard let self else { return }
+                let limits = self.runUsageCommand()
+                let (handlers, result) = self.state.sync {
+                    () -> ([(ClaudeLiveLimits?) -> Void], ClaudeLiveLimits?) in
+                    if let limits {
+                        self.cached = limits
+                        self.lastFetchTime = ProcessInfo.processInfo.systemUptime
+                    }
+                    self.fetchInFlight = false
+                    let pending = self.waiting
+                    self.waiting.removeAll()
+                    return (pending, limits ?? self.cached)
+                }
+                handlers.forEach { $0(result) }
+            }
         }
     }
 

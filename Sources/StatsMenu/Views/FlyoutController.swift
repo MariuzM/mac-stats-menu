@@ -64,6 +64,7 @@ final class FlyoutController {
 
     func hide() {
         panel.orderOut(nil)
+        detailVC.releaseImages()
     }
 }
 
@@ -128,6 +129,12 @@ private final class DetailListViewController: NSViewController {
     private func previousView(before target: NSView, in views: [NSView]) -> NSView {
         guard let idx = views.firstIndex(where: { $0 === target }), idx > 0 else { return target }
         return views[idx - 1]
+    }
+
+    func releaseImages() {
+        for group in groups {
+            group.rows.forEach { $0.releaseImage() }
+        }
     }
 
     func update(sections: [(String, [DetailItem])]) {
@@ -202,5 +209,9 @@ private final class ProcessRow: NSStackView {
         iconView.image = item.icon
         nameLabel.stringValue = item.name
         valueLabel.stringValue = item.value
+    }
+
+    func releaseImage() {
+        iconView.image = nil
     }
 }

@@ -15,8 +15,21 @@ struct CodexLiveLimits {
 final class CodexUsageMonitor {
     static let shared = CodexUsageMonitor()
 
+    static let minimumRefreshInterval: TimeInterval = 300
+
     private(set) var cached: CodexLiveLimits?
+    private var lastFetchTime: TimeInterval = -.infinity
+    private var fetchInFlight = false
+    private var waiting: [(CodexLiveLimits?) -> Void] = []
     private let queue = DispatchQueue(label: "StatsMenu.codex-usage", qos: .userInitiated)
+    private let state = DispatchQueue(label: "StatsMenu.codex-usage.state")
+
+    var isCacheFresh: Bool {
+        state.sync {
+            cached != nil
+                && ProcessInfo.processInfo.systemUptime - lastFetchTime < Self.minimumRefreshInterval
+        }
+    }
 
     private var codexPath: String? {
         let home = FileManager.default.homeDirectoryForCurrentUser.path
@@ -29,12 +42,46 @@ final class CodexUsageMonitor {
         return candidates.first { FileManager.default.isExecutableFile(atPath: $0) }
     }
 
+    private enum Action {
+        case serveCache(CodexLiveLimits?)
+        case joinInFlight
+        case run
+    }
+
     func fetch(completion: @escaping (CodexLiveLimits?) -> Void) {
-        queue.async { [weak self] in
-            guard let self else { return }
-            let limits = self.runUsageCommand()
-            if let limits { self.cached = limits }
-            completion(limits ?? self.cached)
+        let action: Action = state.sync {
+            let now = ProcessInfo.processInfo.systemUptime
+            if let cached, now - lastFetchTime < Self.minimumRefreshInterval {
+                return .serveCache(cached)
+            }
+            waiting.append(completion)
+            guard !fetchInFlight else { return .joinInFlight }
+            fetchInFlight = true
+            return .run
+        }
+
+        switch action {
+        case .serveCache(let limits):
+            completion(limits)
+        case .joinInFlight:
+            break
+        case .run:
+            queue.async { [weak self] in
+                guard let self else { return }
+                let limits = self.runUsageCommand()
+                let (handlers, result) = self.state.sync {
+                    () -> ([(CodexLiveLimits?) -> Void], CodexLiveLimits?) in
+                    if let limits {
+                        self.cached = limits
+                        self.lastFetchTime = ProcessInfo.processInfo.systemUptime
+                    }
+                    self.fetchInFlight = false
+                    let pending = self.waiting
+                    self.waiting.removeAll()
+                    return (pending, limits ?? self.cached)
+                }
+                handlers.forEach { $0(result) }
+            }
         }
     }
 

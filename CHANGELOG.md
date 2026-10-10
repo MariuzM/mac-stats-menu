@@ -2,6 +2,11 @@
 
 All notable changes to this project are documented here.
 
+## [0.8.0] - 2026-10-10
+
+### Changed
+- Top CPU/Memory/Disk now come from one libproc sweep instead of `/bin/ps` — 25× cheaper, but root-owned processes no longer appear.
+
 ## [0.7.0] - 2026-07-26
 
 ### Added

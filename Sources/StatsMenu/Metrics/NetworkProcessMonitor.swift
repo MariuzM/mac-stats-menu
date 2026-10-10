@@ -16,7 +16,7 @@ final class NetworkProcessMonitor {
     private var previous: [String: Counters] = [:]
     private var prevTime: TimeInterval = 0
 
-    func sample() -> [NetworkProcessSample] {
+    func sample(maxAge: TimeInterval) -> [NetworkProcessSample]? {
         let current = readCounters()
         let now = ProcessInfo.processInfo.systemUptime
         defer {
@@ -24,9 +24,9 @@ final class NetworkProcessMonitor {
             prevTime = now
         }
 
-        guard prevTime > 0 else { return [] }
+        guard prevTime > 0 else { return nil }
         let dt = now - prevTime
-        guard dt > 0 else { return [] }
+        guard dt > 0, dt <= maxAge else { return nil }
 
         var result: [NetworkProcessSample] = []
         for (key, counters) in current {

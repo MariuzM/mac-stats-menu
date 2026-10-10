@@ -11,7 +11,7 @@ final class GPUProcessMonitor {
     private var previous: [Int: UInt64] = [:]
     private var prevTime: TimeInterval = 0
 
-    func sample() -> [GPUProcessSample] {
+    func sample(maxAge: TimeInterval) -> [GPUProcessSample]? {
         let current = readAccumulatedTimes()
         let now = ProcessInfo.processInfo.systemUptime
         defer {
@@ -19,9 +19,9 @@ final class GPUProcessMonitor {
             prevTime = now
         }
 
-        guard prevTime > 0 else { return [] }
+        guard prevTime > 0 else { return nil }
         let dt = now - prevTime
-        guard dt > 0 else { return [] }
+        guard dt > 0, dt <= maxAge else { return nil }
 
         var result: [GPUProcessSample] = []
         for (pid, accumulated) in current.times {

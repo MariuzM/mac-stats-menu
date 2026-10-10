@@ -48,10 +48,10 @@ if CommandLine.arguments.contains("--print") {
     let engine = StatsEngine()
     let netProcs = NetworkProcessMonitor()
     engine.sampleOnce()
-    _ = netProcs.sample()
+    _ = netProcs.sample(maxAge: 10)
     Thread.sleep(forTimeInterval: 2.0)
     engine.sampleOnce()
-    let procs = netProcs.sample()
+    let procs = netProcs.sample(maxAge: 10) ?? []
 
     let mem = engine.memory
     let net = engine.network
